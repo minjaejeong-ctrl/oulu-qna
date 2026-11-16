@@ -37,14 +37,24 @@
 
 <div class="overlay hidden" id="askOv">
   <div class="sheet">
-    <h3>질문하기</h3>
+    <h3 id="askHead">질문하기</h3>
     <div class="desc">오울루 담당자가 확인 후 답변드려요.</div>
     <div class="field"><label>어떤 내용인가요?</label><div class="chips" id="askCats"></div></div>
     <div class="field"><label>제목</label><input class="input" id="askTitle" maxlength="200" placeholder="질문을 한 줄로 요약해주세요"></div>
     <div class="field"><label>내용</label><textarea class="input" id="askBody" maxlength="5000" placeholder="자세히 적어주시면 더 정확하게 답변드릴 수 있어요"></textarea></div>
     <div class="field"><label>이미지 첨부 <em>(선택, 최대 3장)</em></label><div class="uploader" id="askImgs"></div><div class="up-hint">제품 사진, 피부 상태, 캡처 화면 등을 함께 올려주세요</div></div>
+    <div class="field" id="askPwField"><label>비밀번호 <em>(4자 이상 · 질문 수정/삭제 시 필요)</em></label><input class="input" id="askPw" type="password" maxlength="30" autocomplete="new-password" placeholder="비밀번호 입력"></div>
     <div class="notice">질문은 작성자 정보 없이 등록되며, 질문과 답변은 모든 크리에이터에게 공개됩니다. 연락처 등 개인정보는 적지 말아주세요.</div>
     <div class="actions"><button class="btn btn-g" id="askCancel">취소</button><button class="btn btn-p" id="askSubmit">등록하기</button></div>
+  </div>
+</div>
+
+<div class="overlay hidden" id="pwOv">
+  <div class="sheet" style="max-width:400px">
+    <h3 id="pwTitle">비밀번호 확인</h3>
+    <div class="desc">질문을 등록할 때 입력한 비밀번호를 입력해주세요.</div>
+    <div class="field"><input class="input" id="pwInput" type="password" maxlength="30" autocomplete="off" placeholder="비밀번호"></div>
+    <div class="actions"><button class="btn btn-g" id="pwCancel">취소</button><button class="btn btn-p" id="pwOk">확인</button></div>
   </div>
 </div>
 
@@ -87,22 +97,33 @@ function render(){
       ${cOpen.has(q.id)?`<div class="qbody">
         <div class="qtext">${esc(q.body)}</div>${imgsHtml(q.images)}
         ${q.answer?`<div class="answer"><div class="who">오울루 답변</div><p>${esc(q.answer)}</p>${imgsHtml(q.answer_images)}</div>`
-                  :`<div class="pending">담당자가 확인 중이에요. 답변이 등록되면 이곳에 표시됩니다.</div>`}
+                  :`<div class="pending">담당자가 확인 중이에요. 답변이 등록되면 이곳에 표시됩니다.</div>
+                    <div class="q-actions"><button class="q-act" data-edit="${q.id}">수정</button><button class="q-act" data-del="${q.id}">삭제</button></div>`}
       </div>`:''}
     </div>`).join('') : '<div class="empty">해당하는 질문이 없어요.<br>궁금한 점을 직접 남겨보세요!</div>';
 }
 $('#cCats').onclick=e=>{ const b=e.target.closest('[data-c]'); if(b){ cCat=b.dataset.c; render(); } };
 $('#cStatus').onclick=e=>{ const b=e.target.closest('[data-s]'); if(!b) return; cStat=b.dataset.s; document.querySelectorAll('#cStatus button').forEach(x=>x.classList.toggle('on',x===b)); render(); };
 $('#cSearch').oninput=render;
-$('#cList').onclick=e=>{ const b=e.target.closest('.qhead'); if(!b) return; const id=b.dataset.id; cOpen.has(id)?cOpen.delete(id):cOpen.add(id); render(); };
+$('#cList').onclick=e=>{
+  const ed=e.target.closest('[data-edit]'); if(ed) return askPw('수정', ed.dataset.edit);
+  const dl=e.target.closest('[data-del]'); if(dl) return askPw('삭제', dl.dataset.del);
+  const b=e.target.closest('.qhead'); if(!b) return; const id=b.dataset.id; cOpen.has(id)?cOpen.delete(id):cOpen.add(id); render(); };
 
 // 질문하기
-let askCat=null; const askItems=[]; const askUp=makeUploader($('#askImgs'), askItems);
+let askCat=null, editId=null, editPw=null; const askItems=[]; const askUp=makeUploader($('#askImgs'), askItems);
 function renderAskCats(){
   const opts=[...(common?[[common.id,common.name+' (협업·정산·일정 등)']]:[]), ...cats.filter(c=>c.visible&&!c.is_common).map(c=>[c.id,c.name])];
   $('#askCats').innerHTML=opts.map(([id,n])=>`<button type="button" class="chip ${askCat===id?'on':''}" data-c="${id}">${esc(n)}</button>`).join('');
 }
-$('#openAsk').onclick=()=>{ askCat=null; $('#askTitle').value=''; $('#askBody').value=''; askUp.set([]); renderAskCats(); $('#askOv').classList.remove('hidden'); };
+function openSheet(q){
+  editId=q?q.id:null; askCat=q?(catOf(q)?.id||null):null;
+  $('#askHead').textContent=q?'질문 수정':'질문하기'; $('#askSubmit').textContent=q?'수정하기':'등록하기';
+  $('#askTitle').value=q?q.title:''; $('#askBody').value=q?q.body:''; $('#askPw').value='';
+  $('#askPwField').classList.toggle('hidden',!!q);
+  askUp.set(q?(q.images||[]).map(url=>({url})):[]); renderAskCats(); $('#askOv').classList.remove('hidden');
+}
+$('#openAsk').onclick=()=>openSheet(null);
 $('#askCats').onclick=e=>{ const b=e.target.closest('[data-c]'); if(b){ askCat=b.dataset.c; renderAskCats(); } };
 $('#askCancel').onclick=()=>$('#askOv').classList.add('hidden');
 $('#askSubmit').onclick=async()=>{
@@ -110,16 +131,42 @@ $('#askSubmit').onclick=async()=>{
   if(!askCat) return toast('제품 또는 공통을 선택해주세요');
   if(!title) return toast('제목을 입력해주세요');
   if(!body) return toast('내용을 입력해주세요');
-  const btn=$('#askSubmit'); btn.disabled=true; btn.textContent='등록 중…';
+  const pw=$('#askPw').value;
+  if(!editId && pw.length<4) return toast('비밀번호를 4자 이상 입력해주세요');
+  const btn=$('#askSubmit'), label=btn.textContent; btn.disabled=true; btn.textContent='저장 중…';
   try{
     const images=await resolveItems(askItems,'q');
-    const { error } = await sb.from('questions').insert({category_id:askCat, title, body, images});
-    if(error) throw error;
-    $('#askOv').classList.add('hidden'); cCat='all'; toast('질문이 등록됐어요');
-    await load();
-    const mine=questions.find(q=>q.title===title && q.body===body); if(mine){ cOpen.add(mine.id); render(); }
-  }catch(e){ console.error(e); toast('등록에 실패했어요. 다시 시도해주세요'); }
-  finally{ btn.disabled=false; btn.textContent='등록하기'; }
+    if(editId){
+      const { error } = await sb.rpc('update_question',{p_id:editId,p_password:editPw,p_category:askCat,p_title:title,p_body:body,p_images:images});
+      if(error) throw error;
+      $('#askOv').classList.add('hidden'); toast('질문을 수정했어요'); cOpen.add(editId); await load();
+    }else{
+      const { data:id, error } = await sb.rpc('create_question',{p_category:askCat,p_title:title,p_body:body,p_images:images,p_password:pw});
+      if(error) throw error;
+      $('#askOv').classList.add('hidden'); cCat='all'; toast('질문이 등록됐어요'); cOpen.add(id); await load();
+    }
+  }catch(e){ console.error(e); toast(errMsg(e, editId?'수정에 실패했어요. 다시 시도해주세요':'등록에 실패했어요. 다시 시도해주세요')); }
+  finally{ btn.disabled=false; btn.textContent=label; }
+};
+// 비밀번호 확인 → 수정/삭제
+function errMsg(e, d){ const m=e?.message||''; if(m.includes('wrong_password')) return '비밀번호가 일치하지 않아요'; if(m.includes('answered')) return '답변이 등록된 질문은 수정·삭제할 수 없어요. 오울루에 문의해주세요'; if(m.includes('not_found')) return '이미 삭제되었거나 숨김 처리된 질문이에요'; if(m.includes('bad_category')) return '선택한 분류를 사용할 수 없어요. 다시 선택해주세요'; return d; }
+let pwAction=null, pwId=null;
+function askPw(action, id){ pwAction=action; pwId=id; $('#pwTitle').textContent=`질문 ${action}`; $('#pwInput').value=''; $('#pwOv').classList.remove('hidden'); setTimeout(()=>$('#pwInput').focus(),50); }
+$('#pwCancel').onclick=()=>$('#pwOv').classList.add('hidden');
+$('#pwInput').onkeydown=e=>{ if(e.key==='Enter') $('#pwOk').click(); };
+$('#pwOk').onclick=async()=>{
+  const pw=$('#pwInput').value; if(!pw) return toast('비밀번호를 입력해주세요');
+  const btn=$('#pwOk'); btn.disabled=true;
+  try{
+    if(pwAction==='삭제'){
+      const { error } = await sb.rpc('delete_question',{p_id:pwId,p_password:pw}); if(error) throw error;
+      $('#pwOv').classList.add('hidden'); toast('질문을 삭제했어요'); await load();
+    }else{
+      const { error } = await sb.rpc('check_question_password',{p_id:pwId,p_password:pw}); if(error) throw error;
+      $('#pwOv').classList.add('hidden'); editPw=pw; openSheet(questions.find(q=>q.id===pwId));
+    }
+  }catch(e){ console.error(e); toast(errMsg(e,'처리하지 못했어요. 다시 시도해주세요')); }
+  finally{ btn.disabled=false; }
 };
 document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) load(); });
 load();

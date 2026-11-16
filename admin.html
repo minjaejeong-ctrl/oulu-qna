@@ -112,6 +112,7 @@
 <script src="config.js"></script>
 <script src="common.js"></script>
 <script>
+const Q_COLS='id,category_id,title,body,images,answer,answer_images,answered_at,pinned,hidden,created_at';
 let cats=[], questions=[], common=null, aPage='q', selId=null, isNew=false;
 const show = id => ['login','denied','admin'].forEach(x=>$('#'+x).classList.toggle('hidden', x!==id));
 const catOf = q => cats.find(c=>c.id===q.category_id) || common;
@@ -145,7 +146,7 @@ const pub = location.origin + location.pathname.replace(/admin(\.html)?$/,''); $
 
 /* ---------- 데이터 ---------- */
 async function loadAll(){
-  const [c,q]=await Promise.all([ sb.from('categories').select('*').order('sort'), sb.from('questions').select('*').order('created_at',{ascending:false}) ]);
+  const [c,q]=await Promise.all([ sb.from('categories').select('*').order('sort'), sb.from('questions').select(Q_COLS).order('created_at',{ascending:false}) ]);
   if(c.error||q.error) return fail(c.error||q.error,'불러오지 못했어요');
   cats=c.data; common=cats.find(x=>x.is_common); questions=q.data; renderAdmin();
 }
@@ -222,7 +223,7 @@ $('#dSave').onclick=async()=>{
     const row={ category_id:$('#dCat').value||null, title, body, answer:ans||null, pinned:dPin, hidden:dHide,
       images:await resolveItems(qItems,'a'), answer_images:await resolveItems(aItems,'a') };
     row.answered_at = !ans ? null : (prev && prev.answer===ans ? prev.answered_at : new Date().toISOString());
-    const res = isNew ? await sb.from('questions').insert(row).select().single() : await sb.from('questions').update(row).eq('id',selId).select().single();
+    const res = isNew ? await sb.from('questions').insert(row).select(Q_COLS).single() : await sb.from('questions').update(row).eq('id',selId).select(Q_COLS).single();
     if(res.error) throw res.error;
     toast(isNew?'질문이 등록됐어요':'저장됐어요');
     await loadAll(); openDrawer(res.data.id);
