@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>오울루 Q&A 관리자</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- 로그인 -->
+<div id="login" class="hidden">
+  <div class="login">
+    <div class="brand">OULU</div>
+    <h2>Q&amp;A 관리자 로그인</h2>
+    <p id="loginMsg">등록된 오울루 관리자 이메일로 로그인 링크를 보내드려요.</p>
+    <div class="field"><label>이메일</label><input class="input" id="loginEmail" type="email" placeholder="name@oulu.kr"></div>
+    <button class="btn btn-p" id="loginBtn" style="width:100%">로그인 링크 받기</button>
+  </div>
+</div>
+<div id="denied" class="hidden">
+  <div class="login">
+    <div class="brand">OULU</div>
+    <h2>관리자 권한이 없어요</h2>
+    <p id="deniedMsg"></p>
+    <button class="btn btn-g" id="deniedOut" style="width:100%">다른 계정으로 로그인</button>
+  </div>
+</div>
+
+<div id="admin" class="hidden">
+  <aside class="side">
+    <div class="brand">OULU</div>
+    <div class="role">크리에이터 Q&amp;A 관리자</div>
+    <button class="nav on" data-page="q">질문 관리 <span class="n hidden" id="navWait"></span></button>
+    <button class="nav" data-page="p">분류 관리</button>
+    <div class="link"><b>크리에이터 공용 링크</b><a id="pubLink" href="./" target="_blank" style="color:var(--primary);word-break:break-all"></a></div>
+    <button class="out" id="logout">로그아웃</button>
+  </aside>
+  <main class="main">
+    <section id="pageQ">
+      <h2>질문 관리</h2>
+      <div class="hsub">질문 확인·답변, 질문 내용/분류 수정, 고정·숨김·삭제를 관리합니다.</div>
+      <div class="stats" id="aStats"></div>
+      <div class="toolbar">
+        <input class="input grow" id="aSearch" placeholder="제목·내용 검색">
+        <select class="input" id="aCat"></select>
+        <button class="btn btn-g" id="aCatEdit" style="padding:9px 12px">분류 편집</button>
+        <select class="input" id="aStatus">
+          <option value="all">전체 상태</option><option value="wait">답변대기</option><option value="done">답변완료</option>
+        </select>
+        <label class="chk"><input type="checkbox" id="aShowHidden" checked> 숨김 포함</label>
+        <button class="btn btn-p" id="aNew">+ 질문 등록</button>
+      </div>
+      <div class="table">
+        <div class="tr th"><div>상태</div><div class="hide-m">분류</div><div>제목</div><div class="hide-m">등록일</div><div>표시</div></div>
+        <div id="aList"><div class="loading">불러오는 중…</div></div>
+      </div>
+    </section>
+    <section id="pageP" class="hidden">
+      <h2>분류 관리</h2>
+      <div class="hsub">크리에이터가 질문할 때 선택하는 분류(제품) 목록입니다. 추가·이름 변경·순서·노출·삭제가 크리에이터 페이지에 바로 반영돼요.</div>
+      <div class="padd">
+        <input class="input" id="pNew" maxlength="60" placeholder="추가할 제품명 입력 (예: 버치 아토 판테놀 로션)">
+        <button class="btn btn-p" id="pAdd" style="white-space:nowrap">제품 추가</button>
+      </div>
+      <div class="plist">
+        <div class="prow th"><div>순서</div><div>제품명</div><div>노출</div><div class="hide-m">질문 수</div><div></div></div>
+        <div id="pList"></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="drawer" id="drawer">
+  <div class="dh"><h3 id="dTitle">질문 상세</h3><button class="btn btn-g" id="dClose" style="padding:7px 12px">닫기</button></div>
+  <div class="db">
+    <div class="sec">오울루 답변</div>
+    <div class="ans-box">
+      <textarea class="input" id="dAnswer" placeholder="답변을 작성하세요. 저장 시 크리에이터 페이지에 바로 노출됩니다."></textarea>
+      <div style="margin-top:10px"><div class="uploader" id="dAnsImgs"></div><div class="up-hint">답변 이미지 최대 3장 (촬영 예시, 브리프 캡처 등)</div></div>
+      <div class="ans-meta"><span id="dAnsMeta"></span><button id="dAnsDel">답변 삭제</button></div>
+    </div>
+    <div class="sec">질문 정보 (수정 가능)</div>
+    <div class="field"><label>분류</label><select class="input" id="dCat"></select></div>
+    <div class="field"><label>제목</label><input class="input" id="dQTitle" maxlength="200"></div>
+    <div class="field"><label>내용</label><textarea class="input" id="dBody" maxlength="5000"></textarea></div>
+    <div class="field"><label>첨부 이미지 <em>(최대 3장 · 추가/삭제 가능)</em></label><div class="uploader" id="dImgs"></div></div>
+    <div class="sec">노출 설정</div>
+    <div class="toggle-row"><div class="tl"><b>상단 고정</b><span>크리에이터 페이지 맨 위에 공지처럼 고정</span></div><button class="sw" id="dPin"></button></div>
+    <div class="toggle-row"><div class="tl"><b>숨김</b><span>크리에이터 페이지에서 보이지 않음</span></div><button class="sw" id="dHide"></button></div>
+  </div>
+  <div class="df">
+    <button class="btn btn-d" id="dDelete">질문 삭제</button>
+    <button class="btn btn-p" id="dSave">저장</button>
+  </div>
+</div>
+
+<div class="overlay hidden" id="cfOv">
+  <div class="sheet" style="max-width:400px">
+    <h3 id="cfTitle"></h3>
+    <div class="desc" id="cfDesc" style="margin-bottom:16px"></div>
+    <div class="actions"><button class="btn btn-g" id="cfNo">취소</button><button class="btn btn-d" id="cfYes">확인</button></div>
+  </div>
+</div>
+<div class="lightbox hidden" id="lb"><img id="lbImg" alt=""></div>
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script src="common.js"></script>
+<script>
+let cats=[], questions=[], common=null, aPage='q', selId=null, isNew=false;
+const show = id => ['login','denied','admin'].forEach(x=>$('#'+x).classList.toggle('hidden', x!==id));
+const catOf = q => cats.find(c=>c.id===q.category_id) || common;
+const catBadge = q => { const c=catOf(q); return `<span class="badge ${!c||c.is_common?'b-common':'b-cat'}">${esc(c?c.name:'공통')}</span>`; };
+const statusBadge = q => q.answer ? '<span class="badge b-done">답변완료</span>' : '<span class="badge b-wait">답변대기</span>';
+function fmt(t){ const d=Date.now()-new Date(t); const H=36e5,D=24*H; if(d<H) return '방금 전'; if(d<D) return Math.floor(d/H)+'시간 전'; if(d<7*D) return Math.floor(d/D)+'일 전'; const x=new Date(t); return `${x.getMonth()+1}.${x.getDate()}`; }
+function fmtFull(t){ const x=new Date(t); return `${x.getFullYear()}.${x.getMonth()+1}.${x.getDate()} ${String(x.getHours()).padStart(2,'0')}:${String(x.getMinutes()).padStart(2,'0')}`; }
+const fail = (e,m) => { console.error(e); toast(m||'저장에 실패했어요. 다시 시도해주세요'); };
+
+/* ---------- 인증 ---------- */
+async function boot(){
+  const { data:{ session } } = await sb.auth.getSession();
+  if(!session){ show('login'); return; }
+  const { data:ok } = await sb.rpc('is_admin');
+  if(!ok){ $('#deniedMsg').textContent=`${session.user.email} 계정은 관리자로 등록되어 있지 않아요.`; show('denied'); return; }
+  show('admin'); await loadAll();
+}
+$('#loginBtn').onclick=async()=>{
+  const email=$('#loginEmail').value.trim().toLowerCase(); if(!email) return toast('이메일을 입력해주세요');
+  const btn=$('#loginBtn'); btn.disabled=true;
+  const { error } = await sb.auth.signInWithOtp({ email, options:{ emailRedirectTo: location.origin + location.pathname } });
+  btn.disabled=false;
+  if(error) return fail(error, '전송에 실패했어요. 잠시 후 다시 시도해주세요');
+  $('#loginMsg').innerHTML=`<b>${esc(email)}</b>로 로그인 링크를 보냈어요. 메일의 링크를 누르면 이 페이지로 돌아옵니다.`;
+};
+$('#loginEmail').onkeydown=e=>{ if(e.key==='Enter') $('#loginBtn').click(); };
+const doLogout=async()=>{ await sb.auth.signOut(); location.reload(); };
+$('#logout').onclick=doLogout; $('#deniedOut').onclick=doLogout;
+sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_IN' && $('#admin').classList.contains('hidden')) boot(); });
+const pub = location.origin + location.pathname.replace(/admin(\.html)?$/,''); $('#pubLink').href=pub; $('#pubLink').textContent=pub;
+
+/* ---------- 데이터 ---------- */
+async function loadAll(){
+  const [c,q]=await Promise.all([ sb.from('categories').select('*').order('sort'), sb.from('questions').select('*').order('created_at',{ascending:false}) ]);
+  if(c.error||q.error) return fail(c.error||q.error,'불러오지 못했어요');
+  cats=c.data; common=cats.find(x=>x.is_common); questions=q.data; renderAdmin();
+}
+function renderAdmin(){
+  const wait=questions.filter(q=>!q.answer&&!q.hidden).length;
+  $('#navWait').textContent=wait; $('#navWait').classList.toggle('hidden',!wait);
+  aPage==='q'?renderAQ():renderAP();
+}
+document.querySelectorAll('.nav').forEach(n=>n.onclick=()=>{
+  aPage=n.dataset.page; document.querySelectorAll('.nav').forEach(x=>x.classList.toggle('on',x===n));
+  $('#pageQ').classList.toggle('hidden',aPage!=='q'); $('#pageP').classList.toggle('hidden',aPage!=='p');
+  closeDrawer(); renderAdmin();
+});
+const catOptions = () => cats.map(c=>`<option value="${c.id}">${esc(c.name)}${c.visible?'':' (숨김)'}</option>`).join('');
+
+/* ---------- 질문 관리 ---------- */
+function renderAQ(){
+  const today=new Date(); today.setHours(0,0,0,0);
+  const s={all:questions.length, wait:questions.filter(q=>!q.answer).length, done:questions.filter(q=>q.answer).length, today:questions.filter(q=>new Date(q.created_at)>=today).length};
+  $('#aStats').innerHTML=`
+    <div class="stat click" data-st="all"><div class="l">전체 질문</div><div class="v">${s.all}</div></div>
+    <div class="stat click warn" data-st="wait"><div class="l">답변대기</div><div class="v">${s.wait}</div></div>
+    <div class="stat click" data-st="done"><div class="l">답변완료</div><div class="v">${s.done}</div></div>
+    <div class="stat"><div class="l">오늘 등록</div><div class="v">${s.today}</div></div>`;
+  const cur=$('#aCat').value||'all';
+  $('#aCat').innerHTML=`<option value="all">전체 분류</option>`+catOptions();
+  $('#aCat').value=[...$('#aCat').options].some(o=>o.value===cur)?cur:'all';
+  const kw=$('#aSearch').value.trim().toLowerCase(), cat=$('#aCat').value, st=$('#aStatus').value, sh=$('#aShowHidden').checked;
+  const list=questions.filter(q=>(sh||!q.hidden)&&(cat==='all'||catOf(q)?.id===cat)&&(st==='all'||(st==='done'?!!q.answer:!q.answer))
+    &&(!kw||(q.title+q.body+(q.answer||'')).toLowerCase().includes(kw)))
+    .sort((a,b)=>(!!a.answer-!!b.answer)||(new Date(b.created_at)-new Date(a.created_at)));
+  $('#aList').innerHTML=list.length?list.map(q=>`
+    <button class="tr trow ${q.id===selId?'sel':''} ${q.hidden?'isHidden':''}" data-id="${q.id}">
+      <div>${statusBadge(q)}</div>
+      <div class="hide-m">${catBadge(q)}</div>
+      <div class="t">${esc(q.title)}${q.images?.length?` <span class="img-ind">사진 ${q.images.length}</span>`:''}</div>
+      <div class="m hide-m">${fmt(q.created_at)}</div>
+      <div class="icons">${q.pinned?'<span class="badge b-pin">고정</span>':''}${q.hidden?'<span class="badge b-hide">숨김</span>':''}</div>
+    </button>`).join(''):'<div class="empty">조건에 맞는 질문이 없습니다.</div>';
+}
+$('#aStats').onclick=e=>{ const c=e.target.closest('[data-st]'); if(c){ $('#aStatus').value=c.dataset.st; renderAQ(); } };
+$('#aSearch').oninput=renderAQ;
+['#aCat','#aStatus','#aShowHidden'].forEach(s=>$(s).onchange=renderAQ);
+$('#aList').onclick=e=>{ const r=e.target.closest('.trow'); if(r) openDrawer(r.dataset.id); };
+$('#aCatEdit').onclick=()=>document.querySelector('.nav[data-page=p]').click();
+
+/* 상세 패널 */
+let dPin=false, dHide=false; const qItems=[], aItems=[];
+const qUp=makeUploader($('#dImgs'), qItems), aUp=makeUploader($('#dAnsImgs'), aItems);
+const setSw=(el,on)=>el.classList.toggle('on',on);
+function openDrawer(id){
+  isNew=id==null; selId=id;
+  const q=isNew?{category_id:common?.id,title:'',body:'',answer:'',images:[],answer_images:[],pinned:false,hidden:false}:questions.find(x=>x.id===id);
+  $('#dTitle').textContent=isNew?'질문 직접 등록 (FAQ·공지용)':'질문 상세';
+  $('#dCat').innerHTML=catOptions(); $('#dCat').value=catOf(q)?.id||'';
+  $('#dQTitle').value=q.title; $('#dBody').value=q.body; $('#dAnswer').value=q.answer||'';
+  $('#dAnsMeta').textContent=q.answer?`답변 ${fmtFull(q.answered_at)}`:(isNew?'':`질문 등록 ${fmtFull(q.created_at)}`);
+  $('#dAnsDel').classList.toggle('hidden',!q.answer); $('#dDelete').classList.toggle('hidden',isNew);
+  qUp.set((q.images||[]).map(url=>({url}))); aUp.set((q.answer_images||[]).map(url=>({url})));
+  dPin=q.pinned; dHide=q.hidden; setSw($('#dPin'),dPin); setSw($('#dHide'),dHide);
+  $('#drawer').classList.add('open'); renderAQ();
+}
+function closeDrawer(){ $('#drawer').classList.remove('open'); selId=null; if(aPage==='q') renderAQ(); }
+$('#dClose').onclick=closeDrawer; $('#aNew').onclick=()=>openDrawer(null);
+$('#dPin').onclick=()=>{ dPin=!dPin; setSw($('#dPin'),dPin); };
+$('#dHide').onclick=()=>{ dHide=!dHide; setSw($('#dHide'),dHide); };
+$('#dSave').onclick=async()=>{
+  const title=$('#dQTitle').value.trim(), body=$('#dBody').value.trim(), ans=$('#dAnswer').value.trim();
+  if(!title) return toast('제목을 입력해주세요'); if(!body) return toast('내용을 입력해주세요');
+  if(!ans && aItems.length) return toast('답변 내용을 함께 입력해주세요');
+  const btn=$('#dSave'); btn.disabled=true; btn.textContent='저장 중…';
+  try{
+    const prev=isNew?null:questions.find(x=>x.id===selId);
+    const row={ category_id:$('#dCat').value||null, title, body, answer:ans||null, pinned:dPin, hidden:dHide,
+      images:await resolveItems(qItems,'a'), answer_images:await resolveItems(aItems,'a') };
+    row.answered_at = !ans ? null : (prev && prev.answer===ans ? prev.answered_at : new Date().toISOString());
+    const res = isNew ? await sb.from('questions').insert(row).select().single() : await sb.from('questions').update(row).eq('id',selId).select().single();
+    if(res.error) throw res.error;
+    toast(isNew?'질문이 등록됐어요':'저장됐어요');
+    await loadAll(); openDrawer(res.data.id);
+  }catch(e){ fail(e); } finally{ btn.disabled=false; btn.textContent='저장'; }
+};
+$('#dAnsDel').onclick=()=>confirmBox('답변을 삭제할까요?','삭제하면 크리에이터 페이지에서 "답변대기"로 바뀝니다.',async()=>{
+  const { error } = await sb.from('questions').update({answer:null,answer_images:[],answered_at:null}).eq('id',selId);
+  if(error) return fail(error); toast('답변을 삭제했어요'); await loadAll(); openDrawer(selId);
+});
+$('#dDelete').onclick=()=>confirmBox('질문을 삭제할까요?','삭제한 질문과 답변은 복구할 수 없어요. 잠시 감추려면 "숨김"을 사용하세요.',async()=>{
+  const { error } = await sb.from('questions').delete().eq('id',selId);
+  if(error) return fail(error); closeDrawer(); toast('삭제했어요'); await loadAll();
+});
+
+/* ---------- 분류 관리 ---------- */
+function renderAP(){
+  const prods=cats.filter(c=>!c.is_common);
+  $('#pList').innerHTML=(common?`
+    <div class="prow"><div class="fixed-tag">고정</div><div><b>${esc(common.name)}</b> <span class="fixed-tag">· 기본 분류 (삭제 불가)</span></div><div><span class="badge b-common">항상 노출</span></div><div class="hide-m">${questions.filter(q=>catOf(q)?.id===common.id).length}</div><div></div></div>`:'')
+  + prods.map((p,i)=>`
+    <div class="prow" data-id="${p.id}">
+      <div class="ord"><button data-mv="-1" ${i===0?'disabled':''}>▲</button><button data-mv="1" ${i===prods.length-1?'disabled':''}>▼</button></div>
+      <div><input class="input" value="${esc(p.name)}" maxlength="60" data-name></div>
+      <div><button class="sw ${p.visible?'on':''}" data-vis></button></div>
+      <div class="hide-m">${questions.filter(q=>q.category_id===p.id).length}</div>
+      <div><button class="del" data-del>삭제</button></div>
+    </div>`).join('');
+}
+$('#pList').addEventListener('click',async e=>{
+  const row=e.target.closest('.prow[data-id]'); if(!row) return;
+  const prods=cats.filter(c=>!c.is_common), i=prods.findIndex(p=>p.id===row.dataset.id), p=prods[i];
+  const mv=e.target.closest('[data-mv]');
+  if(mv){
+    const o=prods[i+(+mv.dataset.mv)]; const a=p.sort, b=o.sort===a?a+(+mv.dataset.mv):o.sort;
+    const r1=await sb.from('categories').update({sort:b}).eq('id',p.id); const r2=await sb.from('categories').update({sort:a}).eq('id',o.id);
+    if(r1.error||r2.error) return fail(r1.error||r2.error); return loadAll();
+  }
+  if(e.target.closest('[data-vis]')){
+    const { error } = await sb.from('categories').update({visible:!p.visible}).eq('id',p.id);
+    if(error) return fail(error); toast(!p.visible?'크리에이터 페이지에 노출됩니다':'질문 선택지에서 숨겼어요'); return loadAll();
+  }
+  if(e.target.closest('[data-del]')){
+    const n=questions.filter(q=>q.category_id===p.id).length;
+    confirmBox(`'${p.name}' 삭제`, n?`이 제품으로 분류된 질문 ${n}개는 '${common?.name||'공통'}'으로 이동됩니다.`:'질문 선택지에서 제거됩니다.',async()=>{
+      if(n && common){ const r=await sb.from('questions').update({category_id:common.id}).eq('category_id',p.id); if(r.error) return fail(r.error); }
+      const { error } = await sb.from('categories').delete().eq('id',p.id);
+      if(error) return fail(error); toast('제품을 삭제했어요'); loadAll();
+    });
+  }
+});
+$('#pList').addEventListener('change',async e=>{
+  if(!e.target.matches('[data-name]')) return;
+  const id=e.target.closest('.prow').dataset.id, p=cats.find(x=>x.id===id), v=e.target.value.trim();
+  if(!v){ e.target.value=p.name; return toast('제품명을 입력해주세요'); }
+  const { error } = await sb.from('categories').update({name:v}).eq('id',id);
+  if(error) return fail(error); toast('제품명이 변경됐어요 (기존 질문에도 반영)'); loadAll();
+});
+$('#pAdd').onclick=async()=>{
+  const v=$('#pNew').value.trim(); if(!v) return toast('제품명을 입력해주세요');
+  const sort=Math.max(0,...cats.map(c=>c.sort))+1;
+  const { error } = await sb.from('categories').insert({name:v, sort, visible:true});
+  if(error) return fail(error); $('#pNew').value=''; toast('제품이 추가됐어요'); loadAll();
+};
+$('#pNew').onkeydown=e=>{ if(e.key==='Enter') $('#pAdd').click(); };
+
+boot();
+</script>
+</body>
+</html>

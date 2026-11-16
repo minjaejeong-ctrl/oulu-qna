@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>오울루 크리에이터 Q&A</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="creator">
+  <div class="c-hero">
+    <div class="logo">OULU · CREATOR</div>
+    <h1>오울루 크리에이터 Q&amp;A</h1>
+    <p>제품·협업 관련 궁금한 점을 남겨주시면<br>오울루 담당자가 직접 답변드려요.</p>
+  </div>
+  <div class="c-panel">
+    <div class="search">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input class="input" id="cSearch" placeholder="궁금한 내용을 검색해보세요">
+    </div>
+    <div class="chips" id="cCats"></div>
+  </div>
+  <div class="c-bar">
+    <div class="count" id="cCount"></div>
+    <div class="seg2" id="cStatus">
+      <button data-s="all" class="on">전체</button>
+      <button data-s="wait">답변대기</button>
+      <button data-s="done">답변완료</button>
+    </div>
+  </div>
+  <div class="c-list" id="cList"><div class="loading">불러오는 중…</div></div>
+  <button class="btn btn-p fab" id="openAsk">질문하기</button>
+</div>
+
+<div class="overlay hidden" id="askOv">
+  <div class="sheet">
+    <h3>질문하기</h3>
+    <div class="desc">오울루 담당자가 확인 후 답변드려요.</div>
+    <div class="field"><label>어떤 내용인가요?</label><div class="chips" id="askCats"></div></div>
+    <div class="field"><label>제목</label><input class="input" id="askTitle" maxlength="200" placeholder="질문을 한 줄로 요약해주세요"></div>
+    <div class="field"><label>내용</label><textarea class="input" id="askBody" maxlength="5000" placeholder="자세히 적어주시면 더 정확하게 답변드릴 수 있어요"></textarea></div>
+    <div class="field"><label>이미지 첨부 <em>(선택, 최대 3장)</em></label><div class="uploader" id="askImgs"></div><div class="up-hint">제품 사진, 피부 상태, 캡처 화면 등을 함께 올려주세요</div></div>
+    <div class="notice">질문은 작성자 정보 없이 등록되며, 질문과 답변은 모든 크리에이터에게 공개됩니다. 연락처 등 개인정보는 적지 말아주세요.</div>
+    <div class="actions"><button class="btn btn-g" id="askCancel">취소</button><button class="btn btn-p" id="askSubmit">등록하기</button></div>
+  </div>
+</div>
+
+<div class="lightbox hidden" id="lb"><img id="lbImg" alt=""></div>
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script src="common.js"></script>
+<script>
+let cats=[], questions=[], cCat='all', cStat='all', cOpen=new Set(), common=null;
+const catOf = q => cats.find(c=>c.id===q.category_id) || common;
+const catBadge = q => { const c=catOf(q); return `<span class="badge ${!c||c.is_common?'b-common':'b-cat'}">${esc(c?c.name:'공통')}</span>`; };
+const statusBadge = q => q.answer ? '<span class="badge b-done">답변완료</span>' : '<span class="badge b-wait">답변대기</span>';
+
+async function load(){
+  const [c,q] = await Promise.all([
+    sb.from('categories').select('*').order('sort'),
+    sb.from('questions').select('id,category_id,title,body,images,answer,answer_images,pinned,created_at').order('pinned',{ascending:false}).order('created_at',{ascending:false})
+  ]);
+  if(c.error||q.error){ $('#cList').innerHTML='<div class="empty">불러오지 못했어요. 잠시 후 새로고침 해주세요.</div>'; return; }
+  cats=c.data; common=cats.find(x=>x.is_common); questions=q.data; render();
+}
+function render(){
+  const vis=cats.filter(c=>c.visible && !c.is_common);
+  if(cCat!=='all' && !cats.find(c=>c.id===cCat && c.visible)) cCat='all';
+  $('#cCats').innerHTML=[['all','전체'], ...(common?[[common.id,common.name]]:[]), ...vis.map(c=>[c.id,c.name])]
+    .map(([id,n])=>`<button class="chip ${cCat===id?'on':''}" data-c="${id}">${esc(n)}</button>`).join('');
+  const kw=$('#cSearch').value.trim().toLowerCase();
+  const list=questions.filter(q=>(cCat==='all'||(catOf(q)?.id===cCat))
+    && (cStat==='all'||(cStat==='done'?!!q.answer:!q.answer))
+    && (!kw||(q.title+q.body+(q.answer||'')).toLowerCase().includes(kw)));
+  $('#cCount').innerHTML=`질문 <b>${list.length}</b>개`;
+  $('#cList').innerHTML = list.length ? list.map(q=>`
+    <div class="qcard ${q.pinned?'pinned':''}">
+      <button class="qhead" data-id="${q.id}">
+        <div class="qmeta">${q.pinned?'<span class="badge b-pin">고정</span>':''}${catBadge(q)}${statusBadge(q)}${q.images?.length?`<span class="img-ind">사진 ${q.images.length}</span>`:''}</div>
+        <div class="qtitle">${esc(q.title)}</div>
+      </button>
+      ${cOpen.has(q.id)?`<div class="qbody">
+        <div class="qtext">${esc(q.body)}</div>${imgsHtml(q.images)}
+        ${q.answer?`<div class="answer"><div class="who">오울루 답변</div><p>${esc(q.answer)}</p>${imgsHtml(q.answer_images)}</div>`
+                  :`<div class="pending">담당자가 확인 중이에요. 답변이 등록되면 이곳에 표시됩니다.</div>`}
+      </div>`:''}
+    </div>`).join('') : '<div class="empty">해당하는 질문이 없어요.<br>궁금한 점을 직접 남겨보세요!</div>';
+}
+$('#cCats').onclick=e=>{ const b=e.target.closest('[data-c]'); if(b){ cCat=b.dataset.c; render(); } };
+$('#cStatus').onclick=e=>{ const b=e.target.closest('[data-s]'); if(!b) return; cStat=b.dataset.s; document.querySelectorAll('#cStatus button').forEach(x=>x.classList.toggle('on',x===b)); render(); };
+$('#cSearch').oninput=render;
+$('#cList').onclick=e=>{ const b=e.target.closest('.qhead'); if(!b) return; const id=b.dataset.id; cOpen.has(id)?cOpen.delete(id):cOpen.add(id); render(); };
+
+// 질문하기
+let askCat=null; const askItems=[]; const askUp=makeUploader($('#askImgs'), askItems);
+function renderAskCats(){
+  const opts=[...(common?[[common.id,common.name+' (협업·정산·일정 등)']]:[]), ...cats.filter(c=>c.visible&&!c.is_common).map(c=>[c.id,c.name])];
+  $('#askCats').innerHTML=opts.map(([id,n])=>`<button type="button" class="chip ${askCat===id?'on':''}" data-c="${id}">${esc(n)}</button>`).join('');
+}
+$('#openAsk').onclick=()=>{ askCat=null; $('#askTitle').value=''; $('#askBody').value=''; askUp.set([]); renderAskCats(); $('#askOv').classList.remove('hidden'); };
+$('#askCats').onclick=e=>{ const b=e.target.closest('[data-c]'); if(b){ askCat=b.dataset.c; renderAskCats(); } };
+$('#askCancel').onclick=()=>$('#askOv').classList.add('hidden');
+$('#askSubmit').onclick=async()=>{
+  const title=$('#askTitle').value.trim(), body=$('#askBody').value.trim();
+  if(!askCat) return toast('제품 또는 공통을 선택해주세요');
+  if(!title) return toast('제목을 입력해주세요');
+  if(!body) return toast('내용을 입력해주세요');
+  const btn=$('#askSubmit'); btn.disabled=true; btn.textContent='등록 중…';
+  try{
+    const images=await resolveItems(askItems,'q');
+    const { error } = await sb.from('questions').insert({category_id:askCat, title, body, images});
+    if(error) throw error;
+    $('#askOv').classList.add('hidden'); cCat='all'; toast('질문이 등록됐어요');
+    await load();
+    const mine=questions.find(q=>q.title===title && q.body===body); if(mine){ cOpen.add(mine.id); render(); }
+  }catch(e){ console.error(e); toast('등록에 실패했어요. 다시 시도해주세요'); }
+  finally{ btn.disabled=false; btn.textContent='등록하기'; }
+};
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) load(); });
+load();
+</script>
+</body>
+</html>
