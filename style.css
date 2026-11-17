@@ -185,3 +185,5 @@ button:disabled{opacity:.6;cursor:default}
 .hero-top .logo{margin-bottom:0}
 .mall-btn{display:inline-flex;align-items:center;gap:4px;padding:6px 12px;border-radius:999px;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.35);color:#fff;font-size:12px;font-weight:600;text-decoration:none;white-space:nowrap;flex-shrink:0}
 .mall-btn:hover{background:rgba(255,255,255,.28)}
+@keyframes qflash{0%,100%{box-shadow:0 0 0 0 rgba(56,92,173,0)}20%,60%{box-shadow:0 0 0 3px rgba(56,92,173,.55)}}
+.qcard.flash{animation:qflash 2.4s ease;border-color:#385CAD}
