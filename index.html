@@ -12,7 +12,7 @@
 <body>
 <div id="creator">
   <div class="c-hero" id="hero">
-    <div class="logo" id="heroKicker">OULU · CREATOR</div>
+    <div class="hero-top"><div class="logo" id="heroKicker">OULU · CREATOR</div><a class="mall-btn" id="mallBtn" href="https://oulu.kr" target="_blank" rel="noopener">공식몰 바로가기 →</a></div>
     <h1 id="heroTitle">오울루 크리에이터 Q&amp;A</h1>
     <p id="heroDesc">제품·협업 관련 궁금한 점을 남겨주시면<br>오울루 담당자가 직접 답변드려요.</p>
   </div>
@@ -156,6 +156,7 @@ $('#askSubmit').onclick=async()=>{
 function applyHero(s){
   $('#heroKicker').textContent=s.hero_kicker||''; $('#heroTitle').textContent=s.hero_title||'';
   $('#heroDesc').innerHTML=esc(s.hero_desc||'').replace(/\n/g,'<br>');
+  const mb=$('#mallBtn'), mu=String(s.mall_url||''); if(s.mall_visible===false || !/^https?:\/\//.test(mu)) mb.classList.add('hidden'); else { mb.classList.remove('hidden'); mb.href=mu; mb.textContent=(s.mall_label||'공식몰 바로가기')+' →'; }
   const h=$('#hero'); if(s.hero_image){ h.style.backgroundImage=`linear-gradient(rgba(20,28,60,.45),rgba(20,28,60,.45)),url("${encodeURI(s.hero_image)}")`; h.classList.add('has-img'); } else { h.style.backgroundImage=''; h.classList.remove('has-img'); }
 }
 // 비밀번호 확인 → 수정/삭제
