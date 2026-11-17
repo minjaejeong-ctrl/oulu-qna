@@ -99,7 +99,7 @@
     <div class="sec">질문 정보 (수정 가능)</div>
     <div class="field"><label>분류 <em>(여러 개 선택 가능)</em></label><div class="chips" id="dCats"></div></div>
     <div class="field"><label>제목</label><input class="input" id="dQTitle" maxlength="200"></div>
-    <div class="field"><label>내용</label><textarea class="input" id="dBody" maxlength="5000"></textarea></div>
+    <div class="field"><label>내용 <em>(선택)</em></label><textarea class="input" id="dBody" maxlength="5000"></textarea></div>
     <div class="field"><label>첨부 이미지 <em>(최대 3장 · 추가/삭제 가능)</em></label><div class="uploader" id="dImgs"></div></div>
     <div class="sec">노출 설정</div>
     <div class="toggle-row"><div class="tl"><b>상단 고정</b><span>크리에이터 페이지 맨 위에 공지처럼 고정</span></div><button class="sw" id="dPin"></button></div>
@@ -231,7 +231,7 @@ $('#dPin').onclick=()=>{ dPin=!dPin; setSw($('#dPin'),dPin); };
 $('#dHide').onclick=()=>{ dHide=!dHide; setSw($('#dHide'),dHide); };
 $('#dSave').onclick=async()=>{
   const title=$('#dQTitle').value.trim(), body=$('#dBody').value.trim(), ans=$('#dAnswer').value.trim();
-  if(!title) return toast('제목을 입력해주세요'); if(!body) return toast('내용을 입력해주세요');
+  if(!title) return toast('제목을 입력해주세요');
   if(!ans && aItems.length) return toast('답변 내용을 함께 입력해주세요');
   if(!dSel.size) return toast('분류를 1개 이상 선택해주세요');
   const btn=$('#dSave'); btn.disabled=true; btn.textContent='저장 중…';

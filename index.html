@@ -41,7 +41,7 @@
     <div class="desc">오울루 담당자가 확인 후 답변드려요.</div>
     <div class="field"><label>어떤 내용인가요? <em>(여러 개 선택 가능)</em></label><div class="chips" id="askCats"></div></div>
     <div class="field"><label>제목</label><input class="input" id="askTitle" maxlength="200" placeholder="질문을 한 줄로 요약해주세요"></div>
-    <div class="field"><label>내용</label><textarea class="input" id="askBody" maxlength="5000" placeholder="자세히 적어주시면 더 정확하게 답변드릴 수 있어요"></textarea></div>
+    <div class="field"><label>내용 <em>(선택)</em></label><textarea class="input" id="askBody" maxlength="5000" placeholder="자세히 적어주시면 더 정확하게 답변드릴 수 있어요"></textarea></div>
     <div class="field"><label>이미지 첨부 <em>(선택, 최대 3장)</em></label><div class="uploader" id="askImgs"></div><div class="up-hint">제품 사진, 피부 상태, 캡처 화면 등을 함께 올려주세요</div></div>
     <div class="field" id="askPwField"><label>비밀번호 <em>(4자 이상 · 질문 수정/삭제 시 필요)</em></label><input class="input" id="askPw" type="password" maxlength="30" autocomplete="new-password" placeholder="비밀번호 입력"></div>
     <div class="notice">질문은 작성자 정보 없이 등록되며, 질문과 답변은 모든 크리에이터에게 공개됩니다. 연락처 등 개인정보는 적지 말아주세요.</div>
@@ -97,7 +97,7 @@ function render(){
         <div class="qtitle">${esc(q.title)}</div>
       </button>
       ${cOpen.has(q.id)?`<div class="qbody">
-        <div class="qtext">${esc(q.body)}</div>${imgsHtml(q.images)}
+        ${q.body?`<div class="qtext">${esc(q.body)}</div>`:''}${imgsHtml(q.images)}
         ${q.answer?`<div class="answer"><div class="who">오울루 답변</div><p>${esc(q.answer)}</p>${imgsHtml(q.answer_images)}</div>`
                   :`<div class="pending">담당자가 확인 중이에요. 답변이 등록되면 이곳에 표시됩니다.</div>
                     <div class="q-actions"><button class="q-act" data-edit="${q.id}">수정</button><button class="q-act" data-del="${q.id}">삭제</button></div>`}
@@ -132,7 +132,6 @@ $('#askSubmit').onclick=async()=>{
   const title=$('#askTitle').value.trim(), body=$('#askBody').value.trim();
   if(!askCats.size) return toast('분류를 1개 이상 선택해주세요');
   if(!title) return toast('제목을 입력해주세요');
-  if(!body) return toast('내용을 입력해주세요');
   const pw=$('#askPw').value;
   if(!editId && pw.length<4) return toast('비밀번호를 4자 이상 입력해주세요');
   const btn=$('#askSubmit'), label=btn.textContent; btn.disabled=true; btn.textContent='저장 중…';
