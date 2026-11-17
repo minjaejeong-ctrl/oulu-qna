@@ -36,6 +36,7 @@
     <div class="role">크리에이터 Q&amp;A 관리자</div>
     <button class="nav on" data-page="q">질문 관리 <span class="n hidden" id="navWait"></span></button>
     <button class="nav" data-page="p">분류 관리</button>
+    <button class="nav" data-page="s">페이지 설정</button>
     <div class="link"><b>크리에이터 공용 링크</b><a id="pubLink" href="./" target="_blank" style="color:var(--primary);word-break:break-all"></a></div>
     <button class="out" id="logout">로그아웃</button>
   </aside>
@@ -71,6 +72,18 @@
         <div id="pList"></div>
       </div>
     </section>
+    <section id="pageS" class="hidden">
+      <h2>페이지 설정</h2>
+      <div class="hsub">크리에이터 페이지 상단 영역의 배경 이미지와 문구를 수정합니다. 저장하면 바로 반영돼요.</div>
+      <div class="settings">
+        <div class="field"><label>배경 이미지 <em>(선택 · 가로형 권장, 없으면 기본 파란 배경)</em></label><div class="uploader" id="sImg"></div></div>
+        <div class="field"><label>작은 제목</label><input class="input" id="sKicker" maxlength="40"></div>
+        <div class="field"><label>큰 제목</label><input class="input" id="sTitle" maxlength="60"></div>
+        <div class="field"><label>안내 문구 <em>(줄바꿈 그대로 반영)</em></label><textarea class="input" id="sDesc" maxlength="300" style="min-height:80px"></textarea></div>
+        <div class="field"><label>미리보기</label><div class="c-hero s-preview" id="sPrev"><div class="logo" id="pvK"></div><h1 id="pvT"></h1><p id="pvD"></p></div></div>
+        <button class="btn btn-p" id="sSave">저장</button>
+      </div>
+    </section>
   </main>
 </div>
 
@@ -84,7 +97,7 @@
       <div class="ans-meta"><span id="dAnsMeta"></span><button id="dAnsDel">답변 삭제</button></div>
     </div>
     <div class="sec">질문 정보 (수정 가능)</div>
-    <div class="field"><label>분류</label><select class="input" id="dCat"></select></div>
+    <div class="field"><label>분류 <em>(여러 개 선택 가능)</em></label><div class="chips" id="dCats"></div></div>
     <div class="field"><label>제목</label><input class="input" id="dQTitle" maxlength="200"></div>
     <div class="field"><label>내용</label><textarea class="input" id="dBody" maxlength="5000"></textarea></div>
     <div class="field"><label>첨부 이미지 <em>(최대 3장 · 추가/삭제 가능)</em></label><div class="uploader" id="dImgs"></div></div>
@@ -112,11 +125,11 @@
 <script src="config.js"></script>
 <script src="common.js"></script>
 <script>
-const Q_COLS='id,category_id,title,body,images,answer,answer_images,answered_at,pinned,hidden,created_at';
+const Q_COLS='id,category_ids,title,body,images,answer,answer_images,answered_at,pinned,hidden,created_at';
 let cats=[], questions=[], common=null, aPage='q', selId=null, isNew=false;
 const show = id => ['login','denied','admin'].forEach(x=>$('#'+x).classList.toggle('hidden', x!==id));
-const catOf = q => cats.find(c=>c.id===q.category_id) || common;
-const catBadge = q => { const c=catOf(q); return `<span class="badge ${!c||c.is_common?'b-common':'b-cat'}">${esc(c?c.name:'공통')}</span>`; };
+const catsOf = q => catsOfQ(q, cats, common);
+const catBadge = q => { const l=catsOf(q); return l.length ? catBadgeHtml(l[0])+(l.length>1?` <span class="more">외 ${l.length-1}</span>`:'') : ''; };
 const statusBadge = q => q.answer ? '<span class="badge b-done">답변완료</span>' : '<span class="badge b-wait">답변대기</span>';
 function fmt(t){ const d=Date.now()-new Date(t); const H=36e5,D=24*H; if(d<H) return '방금 전'; if(d<D) return Math.floor(d/H)+'시간 전'; if(d<7*D) return Math.floor(d/D)+'일 전'; const x=new Date(t); return `${x.getMonth()+1}.${x.getDate()}`; }
 function fmtFull(t){ const x=new Date(t); return `${x.getFullYear()}.${x.getMonth()+1}.${x.getDate()} ${String(x.getHours()).padStart(2,'0')}:${String(x.getMinutes()).padStart(2,'0')}`; }
@@ -153,11 +166,11 @@ async function loadAll(){
 function renderAdmin(){
   const wait=questions.filter(q=>!q.answer&&!q.hidden).length;
   $('#navWait').textContent=wait; $('#navWait').classList.toggle('hidden',!wait);
-  aPage==='q'?renderAQ():renderAP();
+  aPage==='q'?renderAQ():aPage==='p'?renderAP():renderAS();
 }
 document.querySelectorAll('.nav').forEach(n=>n.onclick=()=>{
   aPage=n.dataset.page; document.querySelectorAll('.nav').forEach(x=>x.classList.toggle('on',x===n));
-  $('#pageQ').classList.toggle('hidden',aPage!=='q'); $('#pageP').classList.toggle('hidden',aPage!=='p');
+  $('#pageQ').classList.toggle('hidden',aPage!=='q'); $('#pageP').classList.toggle('hidden',aPage!=='p'); $('#pageS').classList.toggle('hidden',aPage!=='s');
   closeDrawer(); renderAdmin();
 });
 const catOptions = () => cats.map(c=>`<option value="${c.id}">${esc(c.name)}${c.visible?'':' (숨김)'}</option>`).join('');
@@ -175,7 +188,7 @@ function renderAQ(){
   $('#aCat').innerHTML=`<option value="all">전체 분류</option>`+catOptions();
   $('#aCat').value=[...$('#aCat').options].some(o=>o.value===cur)?cur:'all';
   const kw=$('#aSearch').value.trim().toLowerCase(), cat=$('#aCat').value, st=$('#aStatus').value, sh=$('#aShowHidden').checked;
-  const list=questions.filter(q=>(sh||!q.hidden)&&(cat==='all'||catOf(q)?.id===cat)&&(st==='all'||(st==='done'?!!q.answer:!q.answer))
+  const list=questions.filter(q=>(sh||!q.hidden)&&(cat==='all'||catsOf(q).some(c=>c.id===cat))&&(st==='all'||(st==='done'?!!q.answer:!q.answer))
     &&(!kw||(q.title+q.body+(q.answer||'')).toLowerCase().includes(kw)))
     .sort((a,b)=>(!!a.answer-!!b.answer)||(new Date(b.created_at)-new Date(a.created_at)));
   $('#aList').innerHTML=list.length?list.map(q=>`
@@ -194,14 +207,16 @@ $('#aList').onclick=e=>{ const r=e.target.closest('.trow'); if(r) openDrawer(r.d
 $('#aCatEdit').onclick=()=>document.querySelector('.nav[data-page=p]').click();
 
 /* 상세 패널 */
-let dPin=false, dHide=false; const qItems=[], aItems=[];
+let dPin=false, dHide=false, dSel=new Set();
+const renderDCats=()=>{ $('#dCats').innerHTML=cats.map(c=>`<button type="button" class="chip ${dSel.has(c.id)?'on':''}" data-c="${c.id}">${esc(c.name)}${c.visible?'':' (숨김)'}</button>`).join(''); };
+$('#dCats').onclick=e=>{ const b=e.target.closest('[data-c]'); if(!b) return; const id=b.dataset.c; dSel.has(id)?dSel.delete(id):dSel.add(id); renderDCats(); }; const qItems=[], aItems=[];
 const qUp=makeUploader($('#dImgs'), qItems), aUp=makeUploader($('#dAnsImgs'), aItems);
 const setSw=(el,on)=>el.classList.toggle('on',on);
 function openDrawer(id){
   isNew=id==null; selId=id;
-  const q=isNew?{category_id:common?.id,title:'',body:'',answer:'',images:[],answer_images:[],pinned:false,hidden:false}:questions.find(x=>x.id===id);
+  const q=isNew?{category_ids:common?[common.id]:[],title:'',body:'',answer:'',images:[],answer_images:[],pinned:false,hidden:false}:questions.find(x=>x.id===id);
   $('#dTitle').textContent=isNew?'질문 직접 등록 (FAQ·공지용)':'질문 상세';
-  $('#dCat').innerHTML=catOptions(); $('#dCat').value=catOf(q)?.id||'';
+  dSel=new Set(catsOf(q).map(c=>c.id)); renderDCats();
   $('#dQTitle').value=q.title; $('#dBody').value=q.body; $('#dAnswer').value=q.answer||'';
   $('#dAnsMeta').textContent=q.answer?`답변 ${fmtFull(q.answered_at)}`:(isNew?'':`질문 등록 ${fmtFull(q.created_at)}`);
   $('#dAnsDel').classList.toggle('hidden',!q.answer); $('#dDelete').classList.toggle('hidden',isNew);
@@ -217,10 +232,11 @@ $('#dSave').onclick=async()=>{
   const title=$('#dQTitle').value.trim(), body=$('#dBody').value.trim(), ans=$('#dAnswer').value.trim();
   if(!title) return toast('제목을 입력해주세요'); if(!body) return toast('내용을 입력해주세요');
   if(!ans && aItems.length) return toast('답변 내용을 함께 입력해주세요');
+  if(!dSel.size) return toast('분류를 1개 이상 선택해주세요');
   const btn=$('#dSave'); btn.disabled=true; btn.textContent='저장 중…';
   try{
     const prev=isNew?null:questions.find(x=>x.id===selId);
-    const row={ category_id:$('#dCat').value||null, title, body, answer:ans||null, pinned:dPin, hidden:dHide,
+    const row={ category_ids:[...dSel], title, body, answer:ans||null, pinned:dPin, hidden:dHide,
       images:await resolveItems(qItems,'a'), answer_images:await resolveItems(aItems,'a') };
     row.answered_at = !ans ? null : (prev && prev.answer===ans ? prev.answered_at : new Date().toISOString());
     const res = isNew ? await sb.from('questions').insert(row).select(Q_COLS).single() : await sb.from('questions').update(row).eq('id',selId).select(Q_COLS).single();
@@ -242,13 +258,13 @@ $('#dDelete').onclick=()=>confirmBox('질문을 삭제할까요?','삭제한 질
 function renderAP(){
   const prods=cats.filter(c=>!c.is_common);
   $('#pList').innerHTML=(common?`
-    <div class="prow"><div class="fixed-tag">고정</div><div><b>${esc(common.name)}</b> <span class="fixed-tag">· 기본 분류 (삭제 불가)</span></div><div><span class="badge b-common">항상 노출</span></div><div class="hide-m">${questions.filter(q=>catOf(q)?.id===common.id).length}</div><div></div></div>`:'')
+    <div class="prow"><div class="fixed-tag">고정</div><div><b>${esc(common.name)}</b> <span class="fixed-tag">· 기본 분류 (삭제 불가)</span></div><div><span class="badge b-common">항상 노출</span></div><div class="hide-m">${questions.filter(q=>catsOf(q).some(c=>c.id===common.id)).length}</div><div></div></div>`:'')
   + prods.map((p,i)=>`
     <div class="prow" data-id="${p.id}">
       <div class="ord"><button data-mv="-1" ${i===0?'disabled':''}>▲</button><button data-mv="1" ${i===prods.length-1?'disabled':''}>▼</button></div>
       <div><input class="input" value="${esc(p.name)}" maxlength="60" data-name></div>
       <div><button class="sw ${p.visible?'on':''}" data-vis></button></div>
-      <div class="hide-m">${questions.filter(q=>q.category_id===p.id).length}</div>
+      <div class="hide-m">${questions.filter(q=>(q.category_ids||[]).includes(p.id)).length}</div>
       <div><button class="del" data-del>삭제</button></div>
     </div>`).join('');
 }
@@ -266,10 +282,9 @@ $('#pList').addEventListener('click',async e=>{
     if(error) return fail(error); toast(!p.visible?'크리에이터 페이지에 노출됩니다':'질문 선택지에서 숨겼어요'); return loadAll();
   }
   if(e.target.closest('[data-del]')){
-    const n=questions.filter(q=>q.category_id===p.id).length;
-    confirmBox(`'${p.name}' 삭제`, n?`이 제품으로 분류된 질문 ${n}개는 '${common?.name||'공통'}'으로 이동됩니다.`:'질문 선택지에서 제거됩니다.',async()=>{
-      if(n && common){ const r=await sb.from('questions').update({category_id:common.id}).eq('category_id',p.id); if(r.error) return fail(r.error); }
-      const { error } = await sb.from('categories').delete().eq('id',p.id);
+    const n=questions.filter(q=>(q.category_ids||[]).includes(p.id)).length;
+    confirmBox(`'${p.name}' 삭제`, n?`이 제품이 선택된 질문 ${n}개에서 이 분류만 빠집니다. 남은 분류가 없는 질문은 '${common?.name||'공통'}'으로 이동됩니다.`:'질문 선택지에서 제거됩니다.',async()=>{
+      const { error } = await sb.rpc('remove_category',{p_id:p.id});
       if(error) return fail(error); toast('제품을 삭제했어요'); loadAll();
     });
   }
@@ -288,6 +303,32 @@ $('#pAdd').onclick=async()=>{
   if(error) return fail(error); $('#pNew').value=''; toast('제품이 추가됐어요'); loadAll();
 };
 $('#pNew').onkeydown=e=>{ if(e.key==='Enter') $('#pAdd').click(); };
+
+/* ---------- 페이지 설정 ---------- */
+const sItems=[]; let sLoaded=false;
+const sUp=makeUploader($('#sImg'), sItems, ()=>preview(), 1);
+function preview(){
+  $('#pvK').textContent=$('#sKicker').value; $('#pvT').textContent=$('#sTitle').value;
+  $('#pvD').innerHTML=esc($('#sDesc').value).replace(/\n/g,'<br>');
+  const u=sItems[0]?.url||sItems[0]?.preview;
+  $('#sPrev').style.backgroundImage=u?`linear-gradient(rgba(20,28,60,.45),rgba(20,28,60,.45)),url("${u}")`:'';
+}
+['#sKicker','#sTitle','#sDesc'].forEach(s=>$(s).oninput=preview);
+async function renderAS(){
+  if(sLoaded) return preview();
+  const { data, error } = await sb.from('site_settings').select('*').eq('id',1).single();
+  if(error) return fail(error,'불러오지 못했어요');
+  $('#sKicker').value=data.hero_kicker; $('#sTitle').value=data.hero_title; $('#sDesc').value=data.hero_desc;
+  sUp.set(data.hero_image?[{url:data.hero_image}]:[]); sLoaded=true; preview();
+}
+$('#sSave').onclick=async()=>{
+  const btn=$('#sSave'); btn.disabled=true; btn.textContent='저장 중…';
+  try{
+    const imgs=await resolveItems(sItems,'site');
+    const { error } = await sb.from('site_settings').update({ hero_kicker:$('#sKicker').value.trim(), hero_title:$('#sTitle').value.trim(), hero_desc:$('#sDesc').value.trim(), hero_image:imgs[0]||null, updated_at:new Date().toISOString() }).eq('id',1);
+    if(error) throw error; sUp.set(imgs.map(url=>({url}))); preview(); toast('저장됐어요. 크리에이터 페이지에 바로 반영돼요');
+  }catch(e){ fail(e); } finally{ btn.disabled=false; btn.textContent='저장'; }
+};
 
 boot();
 </script>

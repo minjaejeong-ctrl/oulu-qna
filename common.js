@@ -36,12 +36,12 @@ async function uploadImage(file, folder){
 }
 
 // 이미지 선택 UI. items: [{url} | {file, preview}]
-function makeUploader(el, items, onChange){
-  const input = document.createElement('input'); input.type='file'; input.accept='image/*'; input.multiple=true; input.className='hidden';
+function makeUploader(el, items, onChange, max=MAX_IMG){
+  const input = document.createElement('input'); input.type='file'; input.accept='image/*'; input.multiple=max>1; input.className='hidden';
   document.body.appendChild(input);
   function render(){
     el.innerHTML = items.map((it,i)=>`<div class="up-item"><img src="${esc(it.url||it.preview)}" data-full alt=""><button type="button" class="x" data-rm="${i}">×</button></div>`).join('')
-      + (items.length<MAX_IMG ? `<button type="button" class="up-add" data-add><b>+</b>${items.length}/${MAX_IMG}</button>` : '');
+      + (items.length<max ? `<button type="button" class="up-add" data-add><b>+</b>${items.length}/${max}</button>` : '');
   }
   el.onclick = e => {
     const rm=e.target.closest('[data-rm]'); if(rm){ items.splice(+rm.dataset.rm,1); render(); onChange&&onChange(); return; }
@@ -50,7 +50,7 @@ function makeUploader(el, items, onChange){
   input.onchange = () => {
     let files=[...input.files].filter(f=>f.type.startsWith('image/')||/\.(heic|heif)$/i.test(f.name));
     if(files.some(f=>f.size>10*1024*1024)){ toast('10MB 이하 이미지만 첨부할 수 있어요'); files=files.filter(f=>f.size<=10*1024*1024); }
-    const room=MAX_IMG-items.length; if(files.length>room) toast(`이미지는 최대 ${MAX_IMG}장까지 첨부할 수 있어요`);
+    const room=max-items.length; if(files.length>room) toast(`이미지는 최대 ${max}장까지 첨부할 수 있어요`);
     files.slice(0,room).forEach(f=>items.push({file:f, preview:URL.createObjectURL(f)}));
     render(); onChange&&onChange();
   };
@@ -63,3 +63,6 @@ async function resolveItems(items, folder){
   for(const it of items){ out.push(it.url ? it.url : await uploadImage(it.file, folder)); }
   return out;
 }
+// 분류 (중복 선택)
+function catsOfQ(q, cats, common){ const l=(q.category_ids||[]).map(id=>cats.find(c=>c.id===id)).filter(Boolean); return l.length?l:(common?[common]:[]); }
+const catBadgeHtml = c => `<span class="badge ${c.is_common?'b-common':'b-cat'}">${esc(c.name)}</span>`;

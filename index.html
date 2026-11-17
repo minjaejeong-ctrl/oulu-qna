@@ -11,10 +11,10 @@
 </head>
 <body>
 <div id="creator">
-  <div class="c-hero">
-    <div class="logo">OULU · CREATOR</div>
-    <h1>오울루 크리에이터 Q&amp;A</h1>
-    <p>제품·협업 관련 궁금한 점을 남겨주시면<br>오울루 담당자가 직접 답변드려요.</p>
+  <div class="c-hero" id="hero">
+    <div class="logo" id="heroKicker">OULU · CREATOR</div>
+    <h1 id="heroTitle">오울루 크리에이터 Q&amp;A</h1>
+    <p id="heroDesc">제품·협업 관련 궁금한 점을 남겨주시면<br>오울루 담당자가 직접 답변드려요.</p>
   </div>
   <div class="c-panel">
     <div class="search">
@@ -39,7 +39,7 @@
   <div class="sheet">
     <h3 id="askHead">질문하기</h3>
     <div class="desc">오울루 담당자가 확인 후 답변드려요.</div>
-    <div class="field"><label>어떤 내용인가요?</label><div class="chips" id="askCats"></div></div>
+    <div class="field"><label>어떤 내용인가요? <em>(여러 개 선택 가능)</em></label><div class="chips" id="askCats"></div></div>
     <div class="field"><label>제목</label><input class="input" id="askTitle" maxlength="200" placeholder="질문을 한 줄로 요약해주세요"></div>
     <div class="field"><label>내용</label><textarea class="input" id="askBody" maxlength="5000" placeholder="자세히 적어주시면 더 정확하게 답변드릴 수 있어요"></textarea></div>
     <div class="field"><label>이미지 첨부 <em>(선택, 최대 3장)</em></label><div class="uploader" id="askImgs"></div><div class="up-hint">제품 사진, 피부 상태, 캡처 화면 등을 함께 올려주세요</div></div>
@@ -66,15 +66,17 @@
 <script src="common.js"></script>
 <script>
 let cats=[], questions=[], cCat='all', cStat='all', cOpen=new Set(), common=null;
-const catOf = q => cats.find(c=>c.id===q.category_id) || common;
-const catBadge = q => { const c=catOf(q); return `<span class="badge ${!c||c.is_common?'b-common':'b-cat'}">${esc(c?c.name:'공통')}</span>`; };
+const catsOf = q => catsOfQ(q, cats, common);
+const catBadge = q => catsOf(q).map(catBadgeHtml).join('');
 const statusBadge = q => q.answer ? '<span class="badge b-done">답변완료</span>' : '<span class="badge b-wait">답변대기</span>';
 
 async function load(){
-  const [c,q] = await Promise.all([
+  const [c,q,s] = await Promise.all([
     sb.from('categories').select('*').order('sort'),
-    sb.from('questions').select('id,category_id,title,body,images,answer,answer_images,pinned,created_at').order('pinned',{ascending:false}).order('created_at',{ascending:false})
+    sb.from('questions').select('id,category_ids,title,body,images,answer,answer_images,pinned,created_at').order('pinned',{ascending:false}).order('created_at',{ascending:false}),
+    sb.from('site_settings').select('*').eq('id',1).maybeSingle()
   ]);
+  if(s.data) applyHero(s.data);
   if(c.error||q.error){ $('#cList').innerHTML='<div class="empty">불러오지 못했어요. 잠시 후 새로고침 해주세요.</div>'; return; }
   cats=c.data; common=cats.find(x=>x.is_common); questions=q.data; render();
 }
@@ -84,7 +86,7 @@ function render(){
   $('#cCats').innerHTML=[['all','전체'], ...(common?[[common.id,common.name]]:[]), ...vis.map(c=>[c.id,c.name])]
     .map(([id,n])=>`<button class="chip ${cCat===id?'on':''}" data-c="${id}">${esc(n)}</button>`).join('');
   const kw=$('#cSearch').value.trim().toLowerCase();
-  const list=questions.filter(q=>(cCat==='all'||(catOf(q)?.id===cCat))
+  const list=questions.filter(q=>(cCat==='all'||catsOf(q).some(c=>c.id===cCat))
     && (cStat==='all'||(cStat==='done'?!!q.answer:!q.answer))
     && (!kw||(q.title+q.body+(q.answer||'')).toLowerCase().includes(kw)));
   $('#cCount').innerHTML=`질문 <b>${list.length}</b>개`;
@@ -111,24 +113,24 @@ $('#cList').onclick=e=>{
   const b=e.target.closest('.qhead'); if(!b) return; const id=b.dataset.id; cOpen.has(id)?cOpen.delete(id):cOpen.add(id); render(); };
 
 // 질문하기
-let askCat=null, editId=null, editPw=null; const askItems=[]; const askUp=makeUploader($('#askImgs'), askItems);
+let askCats=new Set(), editId=null, editPw=null; const askItems=[]; const askUp=makeUploader($('#askImgs'), askItems);
 function renderAskCats(){
   const opts=[...(common?[[common.id,common.name+' (협업·정산·일정 등)']]:[]), ...cats.filter(c=>c.visible&&!c.is_common).map(c=>[c.id,c.name])];
-  $('#askCats').innerHTML=opts.map(([id,n])=>`<button type="button" class="chip ${askCat===id?'on':''}" data-c="${id}">${esc(n)}</button>`).join('');
+  $('#askCats').innerHTML=opts.map(([id,n])=>`<button type="button" class="chip ${askCats.has(id)?'on':''}" data-c="${id}">${esc(n)}</button>`).join('');
 }
 function openSheet(q){
-  editId=q?q.id:null; askCat=q?(catOf(q)?.id||null):null;
+  editId=q?q.id:null; askCats=new Set(q?catsOf(q).filter(c=>c.visible).map(c=>c.id):[]);
   $('#askHead').textContent=q?'질문 수정':'질문하기'; $('#askSubmit').textContent=q?'수정하기':'등록하기';
   $('#askTitle').value=q?q.title:''; $('#askBody').value=q?q.body:''; $('#askPw').value='';
   $('#askPwField').classList.toggle('hidden',!!q);
   askUp.set(q?(q.images||[]).map(url=>({url})):[]); renderAskCats(); $('#askOv').classList.remove('hidden');
 }
 $('#openAsk').onclick=()=>openSheet(null);
-$('#askCats').onclick=e=>{ const b=e.target.closest('[data-c]'); if(b){ askCat=b.dataset.c; renderAskCats(); } };
+$('#askCats').onclick=e=>{ const b=e.target.closest('[data-c]'); if(!b) return; const id=b.dataset.c; askCats.has(id)?askCats.delete(id):askCats.add(id); renderAskCats(); };
 $('#askCancel').onclick=()=>$('#askOv').classList.add('hidden');
 $('#askSubmit').onclick=async()=>{
   const title=$('#askTitle').value.trim(), body=$('#askBody').value.trim();
-  if(!askCat) return toast('제품 또는 공통을 선택해주세요');
+  if(!askCats.size) return toast('분류를 1개 이상 선택해주세요');
   if(!title) return toast('제목을 입력해주세요');
   if(!body) return toast('내용을 입력해주세요');
   const pw=$('#askPw').value;
@@ -137,17 +139,23 @@ $('#askSubmit').onclick=async()=>{
   try{
     const images=await resolveItems(askItems,'q');
     if(editId){
-      const { error } = await sb.rpc('update_question',{p_id:editId,p_password:editPw,p_category:askCat,p_title:title,p_body:body,p_images:images});
+      const { error } = await sb.rpc('update_question',{p_id:editId,p_password:editPw,p_categories:[...askCats],p_title:title,p_body:body,p_images:images});
       if(error) throw error;
       $('#askOv').classList.add('hidden'); toast('질문을 수정했어요'); cOpen.add(editId); await load();
     }else{
-      const { data:id, error } = await sb.rpc('create_question',{p_category:askCat,p_title:title,p_body:body,p_images:images,p_password:pw});
+      const { data:id, error } = await sb.rpc('create_question',{p_categories:[...askCats],p_title:title,p_body:body,p_images:images,p_password:pw});
       if(error) throw error;
       $('#askOv').classList.add('hidden'); cCat='all'; toast('질문이 등록됐어요'); cOpen.add(id); await load();
     }
   }catch(e){ console.error(e); toast(errMsg(e, editId?'수정에 실패했어요. 다시 시도해주세요':'등록에 실패했어요. 다시 시도해주세요')); }
   finally{ btn.disabled=false; btn.textContent=label; }
 };
+// 상단 영역
+function applyHero(s){
+  $('#heroKicker').textContent=s.hero_kicker||''; $('#heroTitle').textContent=s.hero_title||'';
+  $('#heroDesc').innerHTML=esc(s.hero_desc||'').replace(/\n/g,'<br>');
+  const h=$('#hero'); if(s.hero_image){ h.style.backgroundImage=`linear-gradient(rgba(20,28,60,.45),rgba(20,28,60,.45)),url("${encodeURI(s.hero_image)}")`; h.classList.add('has-img'); } else { h.style.backgroundImage=''; h.classList.remove('has-img'); }
+}
 // 비밀번호 확인 → 수정/삭제
 function errMsg(e, d){ const m=e?.message||''; if(m.includes('wrong_password')) return '비밀번호가 일치하지 않아요'; if(m.includes('answered')) return '답변이 등록된 질문은 수정·삭제할 수 없어요. 오울루에 문의해주세요'; if(m.includes('not_found')) return '이미 삭제되었거나 숨김 처리된 질문이에요'; if(m.includes('bad_category')) return '선택한 분류를 사용할 수 없어요. 다시 선택해주세요'; return d; }
 let pwAction=null, pwId=null;

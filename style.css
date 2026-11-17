@@ -172,3 +172,10 @@ button:disabled{opacity:.6;cursor:default}
 .q-actions{display:flex;gap:6px;justify-content:flex-end;margin-top:10px}
 .q-act{font-size:13px;color:var(--sub);padding:6px 12px;border:1px solid var(--line);border-radius:8px;background:#fff}
 .q-act:hover{background:#F7F9FC}
+.c-panel .chips{flex-wrap:wrap;overflow:visible}
+.c-hero{background-size:cover;background-position:center}
+.more{font-size:12px;color:var(--sub);margin-left:2px}
+.tr .hide-m .badge{max-width:120px}
+.settings{max-width:620px}
+.s-preview{border-radius:16px;padding:26px 22px 28px}
+@media(min-width:901px){.tr > .hide-m{display:flex;align-items:center;gap:4px;min-width:0}}
