@@ -95,6 +95,7 @@
       <textarea class="input" id="dAnswer" placeholder="답변을 작성하세요. 저장 시 크리에이터 페이지에 바로 노출됩니다."></textarea>
       <div style="margin-top:10px"><div class="uploader" id="dAnsImgs"></div><div class="up-hint">답변 이미지 최대 3장 (촬영 예시, 브리프 캡처 등)</div></div>
       <div class="ans-meta"><span id="dAnsMeta"></span><button id="dAnsDel">답변 삭제</button></div>
+      <div class="notify-line" id="dNotify"></div>
     </div>
     <div class="sec">질문 정보 (수정 가능)</div>
     <div class="field"><label>분류 <em>(여러 개 선택 가능)</em></label><div class="chips" id="dCats"></div></div>
@@ -127,6 +128,7 @@
 <script src="common.js"></script>
 <script>
 const Q_COLS='id,category_ids,title,body,images,answer,answer_images,answered_at,pinned,hidden,created_at';
+let notify={};
 let cats=[], questions=[], common=null, aPage='q', selId=null, isNew=false;
 const show = id => ['login','denied','admin'].forEach(x=>$('#'+x).classList.toggle('hidden', x!==id));
 const catsOf = q => catsOfQ(q, cats, common);
@@ -162,7 +164,9 @@ const pub = location.origin + location.pathname.replace(/admin(\.html)?$/,''); $
 async function loadAll(){
   const [c,q]=await Promise.all([ sb.from('categories').select('*').order('sort'), sb.from('questions').select(Q_COLS).order('created_at',{ascending:false}) ]);
   if(c.error||q.error) return fail(c.error||q.error,'불러오지 못했어요');
-  cats=c.data; common=cats.find(x=>x.is_common); questions=q.data; renderAdmin();
+  cats=c.data; common=cats.find(x=>x.is_common); questions=q.data;
+  const n=await sb.rpc('admin_notify_info'); notify={}; (Array.isArray(n.data)?n.data:[]).forEach(r=>notify[r.id]=r);
+  renderAdmin();
 }
 function renderAdmin(){
   const wait=questions.filter(q=>!q.answer&&!q.hidden).length;
@@ -220,6 +224,8 @@ function openDrawer(id){
   dSel=new Set(catsOf(q).map(c=>c.id)); renderDCats();
   $('#dQTitle').value=q.title; $('#dBody').value=q.body; $('#dAnswer').value=q.answer||'';
   $('#dAnsMeta').textContent=q.answer?`답변 ${fmtFull(q.answered_at)}`:(isNew?'':`질문 등록 ${fmtFull(q.created_at)}`);
+  const ni=isNew?null:notify[q.id];
+  $('#dNotify').textContent = ni?.notified_at ? `답변 알림 메일 발송 완료 · ${fmtFull(ni.notified_at)}` : ni?.email_masked ? `처음 답변을 저장하면 ${ni.email_masked}로 알림 메일이 발송돼요` : (isNew?'':'알림 이메일 없음');
   $('#dAnsDel').classList.toggle('hidden',!q.answer); $('#dDelete').classList.toggle('hidden',isNew);
   qUp.set((q.images||[]).map(url=>({url}))); aUp.set((q.answer_images||[]).map(url=>({url})));
   dPin=q.pinned; dHide=q.hidden; setSw($('#dPin'),dPin); setSw($('#dHide'),dHide);
