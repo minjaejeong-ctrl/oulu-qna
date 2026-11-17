@@ -242,8 +242,8 @@ $('#dSave').onclick=async()=>{
     row.answered_at = !ans ? null : (prev && prev.answer===ans ? prev.answered_at : new Date().toISOString());
     const res = isNew ? await sb.from('questions').insert(row).select(Q_COLS).single() : await sb.from('questions').update(row).eq('id',selId).select(Q_COLS).single();
     if(res.error) throw res.error;
+    await loadAll(); closeDrawer();
     toast(isNew?'질문이 등록됐어요':'저장됐어요');
-    await loadAll(); openDrawer(res.data.id);
   }catch(e){ fail(e); } finally{ btn.disabled=false; btn.textContent='저장'; }
 };
 $('#dAnsDel').onclick=()=>confirmBox('답변을 삭제할까요?','삭제하면 크리에이터 페이지에서 "답변대기"로 바뀝니다.',async()=>{
