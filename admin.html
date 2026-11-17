@@ -115,6 +115,7 @@
   <div class="sheet" style="max-width:400px">
     <h3 id="cfTitle"></h3>
     <div class="desc" id="cfDesc" style="margin-bottom:16px"></div>
+    <select class="input hidden" id="cfSel" style="margin-bottom:16px"></select>
     <div class="actions"><button class="btn btn-g" id="cfNo">취소</button><button class="btn btn-d" id="cfYes">확인</button></div>
   </div>
 </div>
@@ -256,10 +257,8 @@ $('#dDelete').onclick=()=>confirmBox('질문을 삭제할까요?','삭제한 질
 
 /* ---------- 분류 관리 ---------- */
 function renderAP(){
-  const prods=cats.filter(c=>!c.is_common);
-  $('#pList').innerHTML=(common?`
-    <div class="prow"><div class="fixed-tag">고정</div><div><b>${esc(common.name)}</b> <span class="fixed-tag">· 기본 분류 (삭제 불가)</span></div><div><span class="badge b-common">항상 노출</span></div><div class="hide-m">${questions.filter(q=>catsOf(q).some(c=>c.id===common.id)).length}</div><div></div></div>`:'')
-  + prods.map((p,i)=>`
+  const prods=cats;
+  $('#pList').innerHTML=prods.map((p,i)=>`
     <div class="prow" data-id="${p.id}">
       <div class="ord"><button data-mv="-1" ${i===0?'disabled':''}>▲</button><button data-mv="1" ${i===prods.length-1?'disabled':''}>▼</button></div>
       <div><input class="input" value="${esc(p.name)}" maxlength="60" data-name></div>
@@ -270,7 +269,7 @@ function renderAP(){
 }
 $('#pList').addEventListener('click',async e=>{
   const row=e.target.closest('.prow[data-id]'); if(!row) return;
-  const prods=cats.filter(c=>!c.is_common), i=prods.findIndex(p=>p.id===row.dataset.id), p=prods[i];
+  const prods=cats, i=prods.findIndex(p=>p.id===row.dataset.id), p=prods[i];
   const mv=e.target.closest('[data-mv]');
   if(mv){
     const o=prods[i+(+mv.dataset.mv)]; const a=p.sort, b=o.sort===a?a+(+mv.dataset.mv):o.sort;
@@ -283,8 +282,13 @@ $('#pList').addEventListener('click',async e=>{
   }
   if(e.target.closest('[data-del]')){
     const n=questions.filter(q=>(q.category_ids||[]).includes(p.id)).length;
-    confirmBox(`'${p.name}' 삭제`, n?`이 제품이 선택된 질문 ${n}개에서 이 분류만 빠집니다. 남은 분류가 없는 질문은 '${common?.name||'공통'}'으로 이동됩니다.`:'질문 선택지에서 제거됩니다.',async()=>{
-      const { error } = await sb.rpc('remove_category',{p_id:p.id});
+    const lone=questions.filter(q=>(q.category_ids||[]).length===1 && q.category_ids[0]===p.id).length;
+    const others=cats.filter(c=>c.id!==p.id);
+    if(lone && !others.length) return toast('옮길 다른 분류가 없어요. 분류를 먼저 추가해주세요');
+    const sel=$('#cfSel'); sel.classList.toggle('hidden',!lone);
+    sel.innerHTML=others.map(c=>`<option value="${c.id}">${esc(c.name)}${c.visible?'':' (숨김)'}</option>`).join('');
+    confirmBox(`'${p.name}' 삭제`, n?`이 분류가 선택된 질문 ${n}개에서 이 분류가 빠집니다.`+(lone?` 이 분류만 선택된 질문 ${lone}개는 아래에서 고른 분류로 옮겨집니다.`:''):'질문 선택지에서 제거됩니다.',async()=>{
+      const { error } = await sb.rpc('remove_category',{p_id:p.id, p_move_to: lone?sel.value:null});
       if(error) return fail(error); toast('제품을 삭제했어요'); loadAll();
     });
   }
@@ -302,6 +306,7 @@ $('#pAdd').onclick=async()=>{
   const { error } = await sb.from('categories').insert({name:v, sort, visible:true});
   if(error) return fail(error); $('#pNew').value=''; toast('제품이 추가됐어요'); loadAll();
 };
+['#cfYes','#cfNo'].forEach(x=>$(x).addEventListener('click',()=>setTimeout(()=>$('#cfSel').classList.add('hidden'),0)));
 $('#pNew').onkeydown=e=>{ if(e.key==='Enter') $('#pAdd').click(); };
 
 /* ---------- 페이지 설정 ---------- */

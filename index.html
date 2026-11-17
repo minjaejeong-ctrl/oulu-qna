@@ -81,9 +81,9 @@ async function load(){
   cats=c.data; common=cats.find(x=>x.is_common); questions=q.data; render();
 }
 function render(){
-  const vis=cats.filter(c=>c.visible && !c.is_common);
+  const vis=cats.filter(c=>c.visible);
   if(cCat!=='all' && !cats.find(c=>c.id===cCat && c.visible)) cCat='all';
-  $('#cCats').innerHTML=[['all','전체'], ...(common?[[common.id,common.name]]:[]), ...vis.map(c=>[c.id,c.name])]
+  $('#cCats').innerHTML=[['all','전체'], ...vis.map(c=>[c.id,c.name])]
     .map(([id,n])=>`<button class="chip ${cCat===id?'on':''}" data-c="${id}">${esc(n)}</button>`).join('');
   const kw=$('#cSearch').value.trim().toLowerCase();
   const list=questions.filter(q=>(cCat==='all'||catsOf(q).some(c=>c.id===cCat))
@@ -115,7 +115,7 @@ $('#cList').onclick=e=>{
 // 질문하기
 let askCats=new Set(), editId=null, editPw=null; const askItems=[]; const askUp=makeUploader($('#askImgs'), askItems);
 function renderAskCats(){
-  const opts=[...(common?[[common.id,common.name+' (협업·정산·일정 등)']]:[]), ...cats.filter(c=>c.visible&&!c.is_common).map(c=>[c.id,c.name])];
+  const opts=cats.filter(c=>c.visible).map(c=>[c.id,c.name]);
   $('#askCats').innerHTML=opts.map(([id,n])=>`<button type="button" class="chip ${askCats.has(id)?'on':''}" data-c="${id}">${esc(n)}</button>`).join('');
 }
 function openSheet(q){
