@@ -80,7 +80,19 @@ async function load(){
   if(s.data) applyHero(s.data);
   if(c.error||q.error){ $('#cList').innerHTML='<div class="empty">불러오지 못했어요. 잠시 후 새로고침 해주세요.</div>'; return; }
   cats=c.data; common=cats.find(x=>x.is_common); questions=q.data; render();
+  if(!hashDone){ hashDone=true; focusFromHash(); }
 }
+// 메일 링크(#q-질문ID)로 들어오면 해당 질문 펼치고 이동
+let hashDone=false;
+function focusFromHash(){
+  const m=location.hash.match(/^#q-([0-9a-f-]{36})$/i); if(!m) return;
+  const id=m[1]; if(!questions.some(q=>q.id===id)) return;
+  cCat='all'; cStat='all'; $('#cSearch').value=''; document.querySelectorAll('#cStatus button').forEach(x=>x.classList.toggle('on',x.dataset.s==='all'));
+  cOpen.add(id); render();
+  const card=document.querySelector(`.qhead[data-id="${id}"]`)?.closest('.qcard'); if(!card) return;
+  setTimeout(()=>{ card.scrollIntoView({behavior:'smooth',block:'center'}); card.classList.add('flash'); setTimeout(()=>card.classList.remove('flash'),2600); },150);
+}
+window.addEventListener('hashchange',()=>focusFromHash());
 function render(){
   const vis=cats.filter(c=>c.visible);
   if(cCat!=='all' && !cats.find(c=>c.id===cCat && c.visible)) cCat='all';
