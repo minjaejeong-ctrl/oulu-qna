@@ -80,7 +80,9 @@
         <div class="field"><label>작은 제목</label><input class="input" id="sKicker" maxlength="40"></div>
         <div class="field"><label>큰 제목</label><input class="input" id="sTitle" maxlength="60"></div>
         <div class="field"><label>안내 문구 <em>(줄바꿈 그대로 반영)</em></label><textarea class="input" id="sDesc" maxlength="300" style="min-height:80px"></textarea></div>
-        <div class="field"><label>미리보기</label><div class="c-hero s-preview" id="sPrev"><div class="logo" id="pvK"></div><h1 id="pvT"></h1><p id="pvD"></p></div></div>
+        <div class="toggle-row"><div class="tl"><b>공식몰 바로가기 버튼</b><span>로고 오른쪽에 표시 · 누르면 새 탭으로 열려요</span></div><button class="sw" id="sMallOn"></button></div>
+        <div class="row2"><div class="field"><label>버튼 문구</label><input class="input" id="sMallLabel" maxlength="20"></div><div class="field"><label>링크 주소</label><input class="input" id="sMallUrl" maxlength="300" placeholder="https://oulu.kr"></div></div>
+        <div class="field"><label>미리보기</label><div class="c-hero s-preview" id="sPrev"><div class="hero-top"><div class="logo" id="pvK"></div><span class="mall-btn" id="pvMall"></span></div><h1 id="pvT"></h1><p id="pvD"></p></div></div>
         <button class="btn btn-p" id="sSave">저장</button>
       </div>
     </section>
@@ -318,25 +320,31 @@ $('#pNew').onkeydown=e=>{ if(e.key==='Enter') $('#pAdd').click(); };
 /* ---------- 페이지 설정 ---------- */
 const sItems=[]; let sLoaded=false;
 const sUp=makeUploader($('#sImg'), sItems, ()=>preview(), 1);
+let sMallOn=true;
 function preview(){
+  $('#pvMall').textContent=($('#sMallLabel').value||'공식몰 바로가기')+' →'; $('#pvMall').classList.toggle('hidden',!sMallOn); $('#sMallOn').classList.toggle('on',sMallOn);
   $('#pvK').textContent=$('#sKicker').value; $('#pvT').textContent=$('#sTitle').value;
   $('#pvD').innerHTML=esc($('#sDesc').value).replace(/\n/g,'<br>');
   const u=sItems[0]?.url||sItems[0]?.preview;
   $('#sPrev').style.backgroundImage=u?`linear-gradient(rgba(20,28,60,.45),rgba(20,28,60,.45)),url("${u}")`:'';
 }
-['#sKicker','#sTitle','#sDesc'].forEach(s=>$(s).oninput=preview);
+['#sKicker','#sTitle','#sDesc','#sMallLabel'].forEach(s=>$(s).oninput=preview);
+$('#sMallOn').onclick=()=>{ sMallOn=!sMallOn; preview(); };
 async function renderAS(){
   if(sLoaded) return preview();
   const { data, error } = await sb.from('site_settings').select('*').eq('id',1).single();
   if(error) return fail(error,'불러오지 못했어요');
   $('#sKicker').value=data.hero_kicker; $('#sTitle').value=data.hero_title; $('#sDesc').value=data.hero_desc;
+  $('#sMallLabel').value=data.mall_label||'공식몰 바로가기'; $('#sMallUrl').value=data.mall_url||'https://oulu.kr'; sMallOn=data.mall_visible!==false;
   sUp.set(data.hero_image?[{url:data.hero_image}]:[]); sLoaded=true; preview();
 }
 $('#sSave').onclick=async()=>{
+  const mallUrl=$('#sMallUrl').value.trim();
+  if(sMallOn && !/^https?:\/\/\S+$/.test(mallUrl)) return toast('링크 주소는 https://로 시작해야 해요');
   const btn=$('#sSave'); btn.disabled=true; btn.textContent='저장 중…';
   try{
     const imgs=await resolveItems(sItems,'site');
-    const { error } = await sb.from('site_settings').update({ hero_kicker:$('#sKicker').value.trim(), hero_title:$('#sTitle').value.trim(), hero_desc:$('#sDesc').value.trim(), hero_image:imgs[0]||null, updated_at:new Date().toISOString() }).eq('id',1);
+    const { error } = await sb.from('site_settings').update({ hero_kicker:$('#sKicker').value.trim(), hero_title:$('#sTitle').value.trim(), hero_desc:$('#sDesc').value.trim(), hero_image:imgs[0]||null, mall_label:$('#sMallLabel').value.trim()||'공식몰 바로가기', mall_url:mallUrl||'https://oulu.kr', mall_visible:sMallOn, updated_at:new Date().toISOString() }).eq('id',1);
     if(error) throw error; sUp.set(imgs.map(url=>({url}))); preview(); toast('저장됐어요. 크리에이터 페이지에 바로 반영돼요');
   }catch(e){ fail(e); } finally{ btn.disabled=false; btn.textContent='저장'; }
 };
